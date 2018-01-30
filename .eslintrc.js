@@ -28,6 +28,7 @@ module.exports = {
     // 允许有tab的使用
     'no-tabs' : 'off',
     // 没有使用的变量
-    "no-unused-vars": ["error", { "vars": "all", "args": "after-used", "ignoreRestSiblings": false }]
+    "no-unused-vars": ["error", { "vars": "all", "args": "after-used", "ignoreRestSiblings": false }],
+    "semi": 0,
   }
 }

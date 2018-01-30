@@ -3,8 +3,11 @@
 import Vue from 'vue'
 import App from './App'
 import router from './router'
+import Resource from 'vue-resource'
 
 import 'lib-flexible/flexible'
+
+Vue.use(Resource)
 
 Vue.config.productionTip = false
 
