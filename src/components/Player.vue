@@ -7,13 +7,35 @@
 				<p>{{singer}}</p>
 			</div>
 			<div class="player-body">
-				<div class="song-cover">
+				<div class="song-cover" :class="{rotateCircle: isPlay}">
 					<div :style="{backgroundImage: 'url(' + song.picUrl + ')'}" class="circle"></div>
 				</div>
 				<div class="audio">
 					<audio :src="song.playSrc" autoplay></audio>
+					<div class="other-bar"></div>
 					<div class="progress-bar"></div>
-					<div class="tool-bar"></div>
+					<div class="tool-bar">
+						<button @click="changePlayMode" class="tool-bar-btn">
+							<Icon :iconName="playMode"></Icon>
+						</button>
+						<div class="audio-btns">
+							<button @click="prev" class="audio-btn prev-btn">
+								<Icon :iconName="'prev'"></Icon>
+							</button>
+							<button v-if="isPlay" @click="audioStop" class="audio-btn stop-btn">
+								<Icon :iconName="'stop'"></Icon>
+							</button>
+							<button v-else @click="audioPlay" class="audio-btn play-btn">
+								<Icon :iconName="'play'"></Icon>
+							</button>
+							<button @click="next" class="audio-btn next-btn">
+								<Icon :iconName="'next'"></Icon>
+							</button>
+						</div>
+						<button class="tool-bar-btn">
+							<Icon :iconName="'recently'"></Icon>
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -23,6 +45,7 @@
 
 <script>
 import Back from './Back.vue'
+import Icon from './Icon.vue'
 const API_MUSICINFO = 'https://api.imjad.cn/cloudmusic/?type=detail&id=';
 const API_MUSICPLAY = 'https://api.imjad.cn/cloudmusic/?type=song&id=';
 const API_MUSICLYRIC = 'https://api.imjad.cn/cloudmusic/?type=lyric&id=';
@@ -36,8 +59,13 @@ export default {
         name: null,
         picUrl: null,
         singer: [],
-        playSrc: null
+        playSrc: null,
+        duration: 0,
+        currentTime: 0,
+        ended: true
       },
+      playModeIndex: 0,
+      playModes: ['random', 'circulation-list', 'circulation-one'],
       linearStar: '#fff',
       linearEnd: '#000',
       isPlay: false,
@@ -47,7 +75,7 @@ export default {
     }
   },
   components: {
-    Back
+    Back, Icon
   },
   computed: {
     singer: function () {
@@ -56,22 +84,30 @@ export default {
         singner += item.name + '/';
       })
       return singner.substring(0, singner.length - 1);
+    },
+    playMode: function () {
+      return this.playModes[this.playModeIndex];
     }
   },
   watch: {
     'song.id': function (val, oldVal) {
-      console.log(val, oldVal)
+      this.song.ended = true;
+      this.getSongInfo();
     },
     isPlay: function (val) {
       if (val) {
         this.audio.play();
       } else {
-        this.audio.stop();
+        this.audio.pause();
       }
+    },
+    'song.currentTime': function(val, oldVal) {
+      console.log(val)
     }
   },
   methods: {
     getSongInfo () {
+      // 获取歌曲信息
       this.$http.get(API_MUSICINFO + this.song.id).then(res => {
         let data = res.body;
         if (data.code === 200) {
@@ -84,19 +120,61 @@ export default {
       })
     },
     getPlayResource () {
+      // 获取歌曲播放资源
       this.$http.get(API_MUSICPLAY + this.song.id).then(res => {
         let data = res.body;
         if (data.code === 200) {
           this.song.playSrc = data.data[0].url;
           // 监听audio是否可以播放
-          if (this.audio !== null) {
-            this.audio.load()
-            if (this.audio.readyState > 1) {
-              this.isPlay = true;
-            }
+          if (this.audio !== null || this.audio !== undefined) {
+            this.audio.load();
+            let that = this;
+            this.audio.addEventListener('canplaythrough', function () {
+              that.setAudioDuration();
+              that.song.ended = false;
+              that.audio.pause();
+              that.audioPlay();
+              that.getAudioCurrentTime();
+            })
           }
         }
       })
+    },
+    getAudioCurrentTime () {
+      let that = this;
+      setTimeout(function () {
+        if (!that.song.ended) {
+          that.song.currentTime = that.audio.currentTime;
+          that.getAudioCurrentTime();
+        } else {
+          return false;
+        }
+      }, 1000)
+    },
+    setAudioDuration () {
+      this.song.duration = this.audio.duration;
+    },
+    changePlayMode () {
+      // 改变播放模式
+      if (this.playModeIndex < this.playModes.length - 1) {
+        this.playModeIndex += 1;
+      } else {
+        this.playModeIndex = 0;
+      }
+    },
+    next () {
+      this.song.id = '29567100';
+    },
+    prev () {
+      this.song.id = '189593';
+    },
+    audioPlay () {
+      this.isPlay = true;
+      this.audio.play();
+    },
+    audioStop () {
+      this.isPlay = false;
+      this.audio.pause();
     }
   },
   beforeCreat () {
@@ -106,10 +184,9 @@ export default {
   beforeMount () {
   },
   mounted () {
-  	this.audio = document.querySelector('audio');
+    this.audio = document.querySelector('audio');
     // 获取歌曲信息
     this.song.id = this.$route.params.mid;
-    this.getSongInfo();
   },
   beforeUpdate () {
   },
@@ -145,8 +222,9 @@ export default {
 			right: 0;
 			bottom: 0;
 			z-index: 98;
-			filter: blur(5px);
+			filter: blur(20px);
 			background-position: center;
+			background-repeat: no-repeat;
 		}
 		.player-head{
 			position: relative;
@@ -154,6 +232,7 @@ export default {
 			height: 1.173333rem;
 			padding: 0.186667rem 0.266667rem;
 			box-sizing: border-box;
+			border-bottom: 0.013333rem rgba(255, 255, 255, .24) solid;
 			.player-head-back{
 				position: absolute;
 				left: 0.266667rem;
@@ -180,9 +259,29 @@ export default {
 				height: 8.0rem;
 				margin: 2.133333rem auto 0 auto;
 				border-radius: 50%;
+				background-color: rgba(255, 255, 255, 0.42);
 				background-image: url('https://raw.githubusercontent.com/onepicse/vue/master/audio/src/components/audio/singlecover.png');
 				background-repeat: no-repeat;
 				background-size: 8.0rem;
+				&.rotateCircle{
+					animation: rotateCircle 15s linear infinite;
+				}
+				@keyframes rotateCircle{
+					from {
+						transform: rotate(0);
+					}
+					to {
+						transform: rotate(360deg);
+					}
+				}
+				@-webkit-keyframes rotateCircle{
+					from {
+						transform: rotate(0);
+					}
+					to {
+						transform: rotate(360deg);
+					}
+				}
 				img{
 					display: block;
 					height: 5.2rem;
@@ -206,13 +305,42 @@ export default {
 		.audio{
 			width: 100%;
 			height: 2.8rem;
+			.other-bar{
+				width: 100%;
+				height: 0.72rem;
+				margin-top: 2.0rem;
+			}
 			.progress-bar{
 				width: 100%;
 				height: 1.546667rem;
 			}
 			.tool-bar{
+				display: flex;
 				width: 100%;
 				height: 1.253333rem;
+				padding: 0 0.266667rem;
+				box-sizing: border-box;
+				.tool-bar-btn{
+					flex-basis: 0.96rem;
+					height: 100%;
+					border: none;
+					outline: none;
+					background-color: transparent;
+					font-size: 0.6rem;
+				}
+				.audio-btns{
+					display: flex;
+					flex-basis: 7.546667rem;
+					padding: 0 0.6rem;
+					box-sizing: border-box;
+					.audio-btn{
+						flex: 1;
+						border: none;
+						outline: none;
+						background-color: transparent;
+						font-size: 0.826667rem;
+					}
+				}
 			}
 		}
 	}

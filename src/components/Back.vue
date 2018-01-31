@@ -23,7 +23,7 @@ export default {
 		vertical-align: middle;
 		width: 0.8rem;
 		height: 0.8rem;
-		font-size: 0.8rem;
+		font-size: 0.8rem !important;
 		line-height: 1;
 		color: #fff;
 	}
