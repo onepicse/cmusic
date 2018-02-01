@@ -30,5 +30,7 @@ module.exports = {
     // 没有使用的变量
     "no-unused-vars": ["error", { "vars": "all", "args": "after-used", "ignoreRestSiblings": false }],
     "semi": 0,
+    "no-undef": 1,
+    "no-unused-vars": 0
   }
 }

@@ -13,7 +13,7 @@
 				<div class="audio">
 					<audio :src="song.playSrc" autoplay></audio>
 					<div class="other-bar"></div>
-					<div class="progress-bar"></div>
+					<div class="progress-bar">{{ audioCurrentTime }} - {{ audioDuration }}</div>
 					<div class="tool-bar">
 						<button @click="changePlayMode" class="tool-bar-btn">
 							<Icon :iconName="playMode"></Icon>
@@ -49,6 +49,7 @@ import Icon from './Icon.vue'
 const API_MUSICINFO = 'https://api.imjad.cn/cloudmusic/?type=detail&id=';
 const API_MUSICPLAY = 'https://api.imjad.cn/cloudmusic/?type=song&id=';
 const API_MUSICLYRIC = 'https://api.imjad.cn/cloudmusic/?type=lyric&id=';
+let timmer = null;
 export default {
   name: 'Player',
   data () {
@@ -66,8 +67,6 @@ export default {
       },
       playModeIndex: 0,
       playModes: ['random', 'circulation-list', 'circulation-one'],
-      linearStar: '#fff',
-      linearEnd: '#000',
       isPlay: false,
       isLoadedInfo: false,
       isReady: false,
@@ -87,22 +86,39 @@ export default {
     },
     playMode: function () {
       return this.playModes[this.playModeIndex];
+    },
+    audioDuration: function () {
+      return [parseInt(this.song.duration / 60 % 60), parseInt(this.song.duration % 60)].join(':').replace(/\b(\d)\b/g, '0$1');
+    },
+    audioCurrentTime: function () {
+      return [parseInt(this.song.currentTime / 60 % 60), parseInt(this.song.currentTime % 60)].join(':').replace(/\b(\d)\b/g, '0$1');
     }
   },
   watch: {
     'song.id': function (val, oldVal) {
-      this.song.ended = true;
       this.getSongInfo();
     },
     isPlay: function (val) {
       if (val) {
+        // 播放
+        this.setAudioCurrentTime();
         this.audio.play();
       } else {
+        // 暂停
+        clearInterval(timmer);
         this.audio.pause();
       }
     },
-    'song.currentTime': function(val, oldVal) {
-      console.log(val)
+    'song.ended': function (val) {
+      if (val) {
+        // 已结束
+        clearInterval(timmer);
+        this.isPlay = false;
+      } else {
+        // 未结束
+        this.setAudioCurrentTime();
+        this.isPlay = true;
+      }
     }
   },
   methods: {
@@ -127,29 +143,27 @@ export default {
           this.song.playSrc = data.data[0].url;
           // 监听audio是否可以播放
           if (this.audio !== null || this.audio !== undefined) {
-            this.audio.load();
+            console.log(this.audio.audioPlay)
+            this.audio.load(this.audio.audioPlay);
             let that = this;
             this.audio.addEventListener('canplaythrough', function () {
               that.setAudioDuration();
-              that.song.ended = false;
-              that.audio.pause();
               that.audioPlay();
-              that.getAudioCurrentTime();
-            })
+              that.song.ended = false;
+            });
+            this.audio.addEventListener('ended', function () {
+              that.song.ended = true;
+            });
           }
         }
       })
     },
-    getAudioCurrentTime () {
+    setAudioCurrentTime () {
       let that = this;
-      setTimeout(function () {
-        if (!that.song.ended) {
-          that.song.currentTime = that.audio.currentTime;
-          that.getAudioCurrentTime();
-        } else {
-          return false;
-        }
-      }, 1000)
+      timmer = setInterval(function () {
+        that.song.currentTime = that.audio.currentTime;
+      }, 1000);
+      timmer;
     },
     setAudioDuration () {
       this.song.duration = this.audio.duration;
@@ -163,18 +177,20 @@ export default {
       }
     },
     next () {
+      // 先暂停
+      this.isPlay = false;
       this.song.id = '29567100';
     },
     prev () {
+      // 先暂停
+      this.isPlay = false;
       this.song.id = '189593';
     },
     audioPlay () {
       this.isPlay = true;
-      this.audio.play();
     },
     audioStop () {
       this.isPlay = false;
-      this.audio.pause();
     }
   },
   beforeCreat () {
@@ -185,6 +201,7 @@ export default {
   },
   mounted () {
     this.audio = document.querySelector('audio');
+    this.audio.audioPlay = false;
     // 获取歌曲信息
     this.song.id = this.$route.params.mid;
   },
@@ -206,6 +223,7 @@ export default {
 		left: 0;
 		right: 0;
 		bottom: 0;
+		overflow: hidden;
 		.player-context {
 			position: absolute;
 			top: 0;
